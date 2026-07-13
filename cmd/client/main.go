@@ -27,9 +27,50 @@ func main() {
 		log.Fatalf("Username not provided: %v", err)
 	}
 
-	_, _, err = pubsub.DeclareAndBind(newCon, routing.ExchangePerilDirect, fmt.Sprintf("%s.%s", routing.PauseKey, username), routing.PauseKey, pubsub.TransientQueue)
+	_, queue, err := pubsub.DeclareAndBind(
+		newCon, 
+		routing.ExchangePerilDirect, 
+		fmt.Sprintf("%s.%s", routing.PauseKey, username), 
+		routing.PauseKey, 
+		pubsub.TransientQueue,
+	)
 	if err != nil {
 		log.Fatalf("Could not declare and bind queue: %v", err)
+	}
+	fmt.Printf("Queue %v declared and bound!\n", queue.Name)
+
+	gamestate := gamelogic.NewGameState(username)
+
+	for {
+		words := gamelogic.GetInput()
+		if len(words) == 0 {
+			continue
+		}
+		switch words[0]{
+		case "spawn":
+			err := gamestate.CommandSpawn(words)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}		
+		case "move":
+			_, err := gamestate.CommandMove(words)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+		case "status":
+			gamestate.CommandStatus()
+		case "help":
+			gamelogic.PrintClientHelp()
+		case "spam":
+			fmt.Println("Spamming not allowed yet!")
+		case "quit":
+			gamelogic.PrintQuit()
+			return
+		default:
+			fmt.Println("unknown command")
+		}
 	}
 
 	signalChan := make(chan os.Signal, 1)
