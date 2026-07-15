@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -13,6 +14,14 @@ type SimpleQueueType string
 const (
 	DurableQueue   SimpleQueueType = "durable"
 	TransientQueue SimpleQueueType = "transient"
+)
+
+type AckType int
+
+const (
+	Ack AckType = iota
+	NackRequeue
+	NackDiscard
 )
 
 func DeclareAndBind(conn *amqp.Connection, exchange, queueName,	key string,	queueType SimpleQueueType,) (*amqp.Channel, amqp.Queue, error) {
@@ -66,7 +75,7 @@ func PublishJSON[T any](ch *amqp.Channel, exchange, key string, val T) error {
 	)
 }
 
-func SubscribeJSON[T any](conn *amqp.Connection, exchange, queueName, key string, queueType SimpleQueueType, handler func(T)) error {
+func SubscribeJSON[T any](conn *amqp.Connection, exchange, queueName, key string, queueType SimpleQueueType, handler func(T) AckType) error {
 	ch, _, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
 	if err != nil {
 		return err
@@ -78,20 +87,36 @@ func SubscribeJSON[T any](conn *amqp.Connection, exchange, queueName, key string
 	}
 	
 	go func() {
-		for delivery := range deliveries {
+		for msg := range deliveries {
 			var value T
 
-			err := json.Unmarshal(delivery.Body, &value)
+			err := json.Unmarshal(msg.Body, &value)
 			if err != nil {
 				fmt.Printf("error unmarshalling message: %v", err)
     			continue
 			}
 
-			handler(value)
+			acktype := handler(value)
 
-			err = delivery.Ack(false)
-			if err != nil {
-				fmt.Printf("error acknowledging message: %v", err)
+			switch acktype {
+			case Ack:
+				if err := msg.Ack(false); err != nil {
+					log.Printf("failed to ack message: %v", err)
+				} else {
+					log.Println("Ack")
+				}				
+			case NackRequeue:
+				if err := msg.Nack(false, true); err != nil {
+					log.Printf("failed to ack message: %v", err)
+				} else {
+					log.Println("NackRequeue")
+				}					
+			case NackDiscard:
+				if err := msg.Nack(false, false); err != nil {
+					log.Printf("failed to ack message: %v", err)
+				} else {
+					log.Println("NackDiscard")
+				}	
 			}
 		}
 	}()
