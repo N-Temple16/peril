@@ -36,7 +36,9 @@ func DeclareAndBind(conn *amqp.Connection, exchange, queueName,	key string,	queu
 		queueType == TransientQueue,
 		queueType == TransientQueue,
 		false,
-		nil,
+		map[string]{
+
+		},
 	)
 	if err != nil {
 		return nil, amqp.Queue{}, err
@@ -47,7 +49,7 @@ func DeclareAndBind(conn *amqp.Connection, exchange, queueName,	key string,	queu
 		key,
 		exchange,
 		false,
-		nil,
+		nil, //add table
 	)
 	if err != nil {
 		return nil, amqp.Queue{}, err
