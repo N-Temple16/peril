@@ -36,8 +36,8 @@ func DeclareAndBind(conn *amqp.Connection, exchange, queueName,	key string,	queu
 		queueType == TransientQueue,
 		queueType == TransientQueue,
 		false,
-		map[string]{
-
+		amqp.Table{
+			"x-dead-letter-exchange": "peril_dlx",
 		},
 	)
 	if err != nil {
@@ -49,7 +49,7 @@ func DeclareAndBind(conn *amqp.Connection, exchange, queueName,	key string,	queu
 		key,
 		exchange,
 		false,
-		nil, //add table
+		nil,
 	)
 	if err != nil {
 		return nil, amqp.Queue{}, err
